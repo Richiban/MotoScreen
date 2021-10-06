@@ -1,21 +1,27 @@
-# Elmish Getting Started
+# MotoScreen
 
-This is a simple Fable application including an [Elmish](https://elmish.github.io/) counter. The repository is made for learning purposes and the generated Javascript output is not optimized. That said, the template shows you how easy it is to get started with Fable and Elmish using minimal configuration.
+This is a simple application I am using to teach myself Fable. It is as app to replicate the display and interactivity of a motorcycle dash.
 
 ## Building and running the app
 
 First of all, start with installing the project's npm dependencies
+
 ```bash
 npm install
 ```
+
 Once this is finished, you can then build and compile the project:
+
 ```
 npm run build
 ```
+
 You can start developing the application in watch mode using the webpack development server:
+
 ```
 npm start
 ```
+
 After the first compilation is finished, navigate to http://localhost:8080 in your browser to see the application.
 
 ### VS Code
