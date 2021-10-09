@@ -4,7 +4,9 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Extensions.fs" />
+    <Compile Include="Interaction.fs" />
     <Compile Include="Types.fs" />
+    <Compile Include="Render.fs" />
     <Compile Include="App.fs" />
   </ItemGroup>
   <ItemGroup>

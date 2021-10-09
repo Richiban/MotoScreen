@@ -2,18 +2,16 @@ module MotoScreen.Types
 
 open System
 
+open MotoScreen.Interaction
+
+type Msg =
+    | Input of UserInteraction
+    | Tick of Unit
+
 type QuickMenuItem =
     { id: string
       title: string
       state: string option }
-    static member ofList titlePairs =
-        titlePairs
-        |> Seq.mapi
-            (fun i (title, state) ->
-                { id = sprintf "mi_%i" i
-                  title = title
-                  state = state })
-        |> Seq.toList
 
 type Percentage = int
 type Speed = int
@@ -38,14 +36,23 @@ type QuickMenuItems =
     { currentlySelected: QuickMenuItem option
       allOptions: QuickMenuItem list }
     static member Default =
+        let items =
+            [ "RidingModes", None
+              "Heated grips", Some "0"
+              "Heated seat", Some "0"
+              "Music", None
+              "Maps", None
+              "Trip computer", None
+              "Settings", None ]
+            |> Seq.mapi
+                (fun i (title, state) ->
+                    { id = sprintf "mi_%i" i
+                      title = title
+                      state = state })
+            |> Seq.toList
+
         { currentlySelected = None
-          allOptions =
-              QuickMenuItem.ofList [ "RidingModes", None
-                                     "Heated grips", Some "0"
-                                     "Heated seat", Some "0"
-                                     "Music", None
-                                     "Maps", None
-                                     "Settings", None ] }
+          allOptions = items }
 
 type State =
     { QuickMenuItems: QuickMenuItems
@@ -62,4 +69,4 @@ type State =
           Time = DateTimeOffset.Now
           Gear = Neutral }
 
-type Msg = Msg of unit
+type TickData = { gear: string }

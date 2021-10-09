@@ -2,99 +2,102 @@ module MotoScreen.App
 
 open System
 
+open Fable.Import
 open Elmish
 open Elmish.React
-open Feliz
 
 open MotoScreen.Types
+open MotoScreen.Interaction
+open MotoScreen.Render
+open Browser.Dom
+open Browser.Types
 
 let init () =
     let initialState = State.Default
     let initialCmd = Cmd.none
     initialState, initialCmd
 
-let update (msg: Msg) (state: State) = state, Cmd.none
+let goUp quickMenuItems =
+    printfn "Going up"
+    quickMenuItems
 
-let renderError (errorMsg: string) =
-    Html.h1 [ prop.style [ style.color.red ]
-              prop.text errorMsg ]
+let goDown quickMenuItems = quickMenuItems
 
-let div (classes: string list) (children: ReactElement list) =
-    Html.div [ prop.className classes
-               prop.children children ]
+type Direction =
+    | Left
+    | Right
 
-let renderQuickMenuItem item =
-    let tileText =
-        match item.state with
-        | None -> item.title
-        | Some state -> sprintf "%s (%s)" item.title state
+let goLeftRight quickMenuItems direction =
+    match quickMenuItems.currentlySelected with
+    | None ->
+        let selected = Some quickMenuItems.allOptions.Head
 
-    Html.div [ prop.className "tile is-parent"
-               prop.children [ Html.div [ prop.key item.id
-                                          prop.id item.id
-                                          prop.className "tile is-child box"
-                                          prop.text tileText ] ] ]
+        printfn "%A" selected
 
-let renderQuickMenuItems items =
-    Html.div [ prop.className "tile is-ancestor is-spaced"
-               prop.children [ for item in items.allOptions -> renderQuickMenuItem item ] ]
+        { quickMenuItems with
+              currentlySelected = selected }
+    | Some opt ->
+        let selectedIndex =
+            quickMenuItems.allOptions
+            |> Seq.findIndex ((=) opt)
 
-let spinner =
-    Html.div [ prop.style [ style.textAlign.center
-                            style.marginTop 20 ]
-               prop.children [ Html.i [ prop.className "fa fa-cog fa-spin fa-2x" ] ] ]
+        let newIndex =
+            match direction with
+            | Left -> selectedIndex - 1 |> max 0
+            | Right ->
+                selectedIndex + 1
+                |> min (quickMenuItems.allOptions.Length - 1)
 
-let renderRpms (rpms: Rpm) =
-    Html.progress [ prop.className "progress"
-                    prop.text (string rpms)
-                    prop.value (rpms.currentRpm)
-                    prop.max (rpms.maxRpm) ]
+        let newSelected =
+            quickMenuItems.allOptions |> List.item newIndex
 
-let renderSpeed (speed: Speed) =
-    let speedString = sprintf "%i mph" speed
-    Html.div [ prop.text speedString ]
+        printfn "%A" newSelected
 
-let renderGear gear =
-    let s =
-        match gear with
-        | First -> "1"
-        | Neutral -> "N"
-        | Second -> "2"
-        | Third -> "3"
-        | Fourth -> "4"
-        | Fifth -> "5"
-        | Sixth -> "6"
+        { quickMenuItems with
+              currentlySelected = Some newSelected }
 
-    Html.div [ prop.text s ]
+let goLeft quickMenuItems = goLeftRight quickMenuItems Left
 
-let renderFuel { level = level; range = range } =
-    Html.div [ prop.children [ Html.text "Fuel "
-                               Html.progress [ prop.value level
-                                               prop.max 100 ]
-                               Html.text (sprintf " (%i mi)" range) ] ]
+let goRight quickMenuItems = goLeftRight quickMenuItems Right
 
-// let renderItems =
-//     function
-//     | HasNotStartedYet -> Html.none
-//     | InProgress -> spinner
-//     | Resolved (Error errorMsg) -> renderError errorMsg
-//     | Resolved (Ok items) -> Html.fragment [ for item in items -> renderItem item ]
+let update (msg: Msg) (state: State) =
+    let state =
+        match msg with
+        | Input KeyUp ->
+            { state with
+                  QuickMenuItems = goUp state.QuickMenuItems }
+        | Input KeyDown ->
+            { state with
+                  QuickMenuItems = goDown state.QuickMenuItems }
+        | Input KeyLeft ->
+            { state with
+                  QuickMenuItems = goLeft state.QuickMenuItems }
+        | Input KeyRight ->
+            { state with
+                  QuickMenuItems = goRight state.QuickMenuItems }
+        | Tick tickData -> state
 
-let render (state: State) (dispatch: Msg -> unit) =
-    Html.div [ prop.style [ style.padding 20 ]
-               prop.children [ Html.h1 [ prop.className "title"
-                                         prop.text "Moto Screen" ]
+    state, Cmd.none
 
-                               renderSpeed state.Speed
+let timerTick dispatch =
+    window.setInterval ((fun _ -> dispatch (Tick())), 1000)
+    |> ignore
 
-                               renderRpms state.Rpm
+let inputs dispatch =
+    let update (e: KeyboardEvent) =
+        match e.key with
+        | "ArrowUp" -> KeyUp |> Input |> dispatch
+        | "ArrowLeft" -> KeyLeft |> Input |> dispatch
+        | "ArrowDown" -> KeyDown |> Input |> dispatch
+        | "ArrowRight" -> KeyRight |> Input |> dispatch
+        | _ -> ()
 
-                               renderGear state.Gear
-
-                               renderFuel state.Fuel
-
-                               renderQuickMenuItems state.QuickMenuItems ] ]
+    document.addEventListener ("keydown", (fun e -> update (e :?> _)))
 
 Program.mkProgram init update render
+|> Program.withSubscription
+    (fun _ ->
+        Cmd.batch [ Cmd.ofSub timerTick
+                    Cmd.ofSub inputs ])
 |> Program.withReactSynchronous "elmish-app"
 |> Program.run
