@@ -6,7 +6,7 @@ open MotoScreen.Interaction
 
 type Msg =
     | Input of UserInteraction
-    | Tick of Unit
+    | Tick of TimeSpan
 
 type QuickMenuItem =
     { id: string
@@ -32,9 +32,14 @@ type Gear =
     | Fifth
     | Sixth
 
-type QuickMenuItems =
-    { currentlySelected: QuickMenuItem option
-      allOptions: QuickMenuItem list }
+type OpenState =
+    | Closed
+    | Open of openFor: TimeSpan
+
+type QuickMenu =
+    { currentlySelected: QuickMenuItem
+      allOptions: QuickMenuItem list
+      openState: OpenState }
     static member Default =
         let items =
             [ "RidingModes", None
@@ -51,22 +56,26 @@ type QuickMenuItems =
                       state = state })
             |> Seq.toList
 
-        { currentlySelected = None
-          allOptions = items }
+        { currentlySelected = items |> Seq.head
+          allOptions = items
+          openState = Closed }
 
-type State =
-    { QuickMenuItems: QuickMenuItems
-      Speed: Speed
+type DriveData =
+    { Speed: Speed
       Rpm: Rpm
       Fuel: FuelInfo
-      Time: DateTimeOffset
       Gear: Gear }
     static member Default =
-        { QuickMenuItems = QuickMenuItems.Default
-          Speed = 0
+        { Speed = 0
           Rpm = { currentRpm = 0; maxRpm = 10_000 }
           Fuel = FuelInfo.Default
-          Time = DateTimeOffset.Now
           Gear = Neutral }
 
-type TickData = { gear: string }
+type State =
+    { QuickMenu: QuickMenu
+      Time: DateTimeOffset
+      DriveData: DriveData }
+    static member Default =
+        { QuickMenu = QuickMenu.Default
+          Time = DateTimeOffset.Now
+          DriveData = DriveData.Default }

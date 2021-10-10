@@ -1,4 +1,4 @@
-module MotoScreen.Render
+module MotoScreen.View
 
 open Elmish
 open Elmish.React
@@ -14,16 +14,19 @@ let div (classes: string list) (children: ReactElement list) =
     Html.div [ prop.className classes
                prop.children children ]
 
-let renderQuickMenuItem item isSelected =
+let renderQuickMenuItem item isSelected menuIsOpen =
     let tileText =
         match item.state with
         | None -> item.title
         | Some state -> sprintf "%s (%s)" item.title state
 
-    let className = (sprintf "tile is-child box")
+    let className =
+        [ "tile"
+          "is-child"
+          if menuIsOpen then "box" ]
 
     let styles =
-        [ if isSelected then
+        [ if isSelected && menuIsOpen then
               style.backgroundColor "lightblue" ]
 
     Html.div [ prop.className "tile is-parent"
@@ -33,10 +36,15 @@ let renderQuickMenuItem item isSelected =
                                           prop.className className
                                           prop.text tileText ] ] ]
 
-let renderQuickMenuItems items =
+let renderQuickMenuItems menu =
+    let menuIsOpen =
+        match menu.openState with
+        | Open _ -> true
+        | Closed -> false
+
     Html.div [ prop.className "tile is-ancestor is-spaced"
-               prop.children [ for item in items.allOptions ->
-                                   renderQuickMenuItem item (items.currentlySelected = Some item) ] ]
+               prop.children [ for item in menu.allOptions ->
+                                   renderQuickMenuItem item (menu.currentlySelected = item) menuIsOpen ] ]
 
 let spinner =
     Html.div [ prop.style [ style.textAlign.center
@@ -86,12 +94,12 @@ let render (state: State) (dispatch: Msg -> unit) =
                prop.children [ Html.h1 [ prop.className "title"
                                          prop.text "Moto Screen" ]
 
-                               renderSpeed state.Speed
+                               renderSpeed state.DriveData.Speed
 
-                               renderRpms state.Rpm
+                               renderRpms state.DriveData.Rpm
 
-                               renderGear state.Gear
+                               renderGear state.DriveData.Gear
 
-                               renderFuel state.Fuel
+                               renderFuel state.DriveData.Fuel
 
-                               renderQuickMenuItems state.QuickMenuItems ] ]
+                               renderQuickMenuItems state.QuickMenu ] ]

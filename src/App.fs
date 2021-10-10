@@ -8,7 +8,7 @@ open Elmish.React
 
 open MotoScreen.Types
 open MotoScreen.Interaction
-open MotoScreen.Render
+open MotoScreen.View
 open Browser.Dom
 open Browser.Types
 
@@ -27,60 +27,118 @@ type Direction =
     | Left
     | Right
 
-let goLeftRight quickMenuItems direction =
-    match quickMenuItems.currentlySelected with
-    | None ->
-        let selected = Some quickMenuItems.allOptions.Head
+let goLeftRight menu direction =
+    let selectedIndex =
+        menu.allOptions
+        |> Seq.findIndex ((=) menu.currentlySelected)
 
-        printfn "%A" selected
+    let newIndex =
+        match direction with
+        | Left -> selectedIndex - 1 |> max 0
+        | Right ->
+            selectedIndex + 1
+            |> min (menu.allOptions.Length - 1)
 
-        { quickMenuItems with
-              currentlySelected = selected }
-    | Some opt ->
-        let selectedIndex =
-            quickMenuItems.allOptions
-            |> Seq.findIndex ((=) opt)
+    let newSelected = menu.allOptions |> List.item newIndex
 
-        let newIndex =
-            match direction with
-            | Left -> selectedIndex - 1 |> max 0
-            | Right ->
-                selectedIndex + 1
-                |> min (quickMenuItems.allOptions.Length - 1)
+    printfn "%A" newSelected
 
-        let newSelected =
-            quickMenuItems.allOptions |> List.item newIndex
-
-        printfn "%A" newSelected
-
-        { quickMenuItems with
-              currentlySelected = Some newSelected }
+    { menu with
+          currentlySelected = newSelected }
 
 let goLeft quickMenuItems = goLeftRight quickMenuItems Left
 
 let goRight quickMenuItems = goLeftRight quickMenuItems Right
 
+let random = Random()
+
+let randomiseDriveData state =
+    let currentSpeed = state.Speed
+
+    // Use even numbers as code for "accelerating" and odd for "decelerating"
+    let accelerating = currentSpeed % 2 = 0
+
+    let delta =
+        if accelerating then
+            random.Next(-1, 16)
+        else
+            random.Next(-16, 1)
+
+    let newSpeed = max 0 (delta + currentSpeed)
+
+    let newGear =
+        match newSpeed / 15 with
+        | 0 -> First
+        | 1 -> Second
+        | 2 -> Third
+        | 3 -> Fourth
+        | 4 -> Fifth
+        | _ -> Sixth
+
+    { state with
+          Gear = newGear
+          Speed = newSpeed }
+
+let openQuickMenu direction state =
+    match direction with
+    | KeyUp ->
+        { state with
+              QuickMenu =
+                  { goUp state.QuickMenu with
+                        openState = Open TimeSpan.Zero } }
+    | KeyDown ->
+        { state with
+              QuickMenu =
+                  { goDown state.QuickMenu with
+                        openState = Open TimeSpan.Zero } }
+    | KeyLeft ->
+        { state with
+              QuickMenu =
+                  { goLeft state.QuickMenu with
+                        openState = Open TimeSpan.Zero } }
+    | KeyRight ->
+        { state with
+              QuickMenu =
+                  { goRight state.QuickMenu with
+                        openState = Open TimeSpan.Zero } }
+
+let closeQuickMenu state =
+    { state with
+          QuickMenu =
+              { state.QuickMenu with
+                    openState = Closed } }
+
 let update (msg: Msg) (state: State) =
     let state =
+        let newDriveData = randomiseDriveData state.DriveData
+        let stateWithNewDriveData = { state with DriveData = newDriveData }
+
         match msg with
-        | Input KeyUp ->
-            { state with
-                  QuickMenuItems = goUp state.QuickMenuItems }
-        | Input KeyDown ->
-            { state with
-                  QuickMenuItems = goDown state.QuickMenuItems }
-        | Input KeyLeft ->
-            { state with
-                  QuickMenuItems = goLeft state.QuickMenuItems }
-        | Input KeyRight ->
-            { state with
-                  QuickMenuItems = goRight state.QuickMenuItems }
-        | Tick tickData -> state
+        | Input direction -> openQuickMenu direction state
+        | Tick elapsed ->
+            match state.QuickMenu.openState with
+            | Closed -> stateWithNewDriveData
+            | Open time ->
+                let totalOpen = time + elapsed
+                let quickMenuHasTimedOut = totalOpen > TimeSpan.FromSeconds 5.0
+
+                if quickMenuHasTimedOut then
+                    { stateWithNewDriveData with
+                          QuickMenu =
+                              { state.QuickMenu with
+                                    openState = Closed } }
+                else
+                    { stateWithNewDriveData with
+                          QuickMenu =
+                              { state.QuickMenu with
+                                    openState = Open(totalOpen) } }
 
     state, Cmd.none
 
 let timerTick dispatch =
-    window.setInterval ((fun _ -> dispatch (Tick())), 1000)
+    let interval = TimeSpan.FromMilliseconds(500.0)
+
+    window.setInterval ((fun _ -> dispatch (Tick interval)), int interval.TotalMilliseconds)
     |> ignore
 
 let inputs dispatch =
